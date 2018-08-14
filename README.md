@@ -2,7 +2,7 @@
 
 ## UPDATE
 
-2018.08.14: added multiple views for camera matrix, simple using comma to add views as follow.
+2018.08.14: added multiple views for camera matrix, simply using comma to add views as follow when you run the tracker.
 ```
 python deep_sort_app.py \
     --sequence_dir=./MOT16/test/MOT16-06,./MOT16/test/MOT16-08 \
