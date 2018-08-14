@@ -13,7 +13,6 @@ from deep_sort import nn_matching
 from deep_sort.detection import Detection
 from deep_sort.tracker import Tracker
 
-
 def gather_sequence_info(sequence_dir, detection_file):
     """Gather sequence information, such as image filenames, detections,
     groundtruth (if available).
@@ -200,10 +199,101 @@ def run(sequence_dir, detection_file, output_file, min_confidence,
 
     # Run tracker.
     if display:
-        visualizer = visualization.Visualization(seq_info, update_ms=5)
+        visualizer = visualization.Visualization(seq_info, update_ms=5,angle_length=3)
     else:
         visualizer = visualization.NoVisualization(seq_info)
     visualizer.run(frame_callback)
+
+    # Store results.
+    f = open(output_file, 'w')
+    for row in results:
+        print('%d,%d,%.2f,%.2f,%.2f,%.2f,1,-1,-1,-1' % (
+            row[0], row[1], row[2], row[3], row[4], row[5]),file=f)
+
+def run(sequence_dir, detection_file, output_file, min_confidence,
+        nms_max_overlap, min_detection_height, max_cosine_distance,
+        nn_budget, display):
+    """Run multi-target tracker on a particular sequence.
+
+    Parameters
+    ----------
+    sequence_dir : str
+        Path to the MOTChallenge sequence directory.
+    detection_file : str
+        Path to the detections file.
+    output_file : str
+        Path to the tracking output file. This file will contain the tracking
+        results on completion.
+    min_confidence : float
+        Detection confidence threshold. Disregard all detections that have
+        a confidence lower than this value.
+    nms_max_overlap: float
+        Maximum detection overlap (non-maxima suppression threshold).
+    min_detection_height : int
+        Detection height threshold. Disregard all detections that have
+        a height lower than this value.
+    max_cosine_distance : float
+        Gating threshold for cosine distance metric (object appearance).
+    nn_budget : Optional[int]
+        Maximum size of the appearance descriptor gallery. If None, no budget
+        is enforced.
+    display : bool
+        If True, show visualization of intermediate tracking results.
+
+    """
+    seq_info_list = []
+    metric_list = []
+    tracker = []
+    angle_length = len(sequence_dir)
+    for index in range(0,angle_length):
+        seq_info_list.append(gather_sequence_info(sequence_dir[index], detection_file[index]))
+        metric_list.append(nn_matching.NearestNeighborDistanceMetric(
+        "cosine", max_cosine_distance, nn_budget))
+        tracker.append(Tracker(metric_list[index]))
+    results = []
+
+    def frame_callback(vis, frame_idx, seq_info, viewer,angle):
+        print("Processing frame %05d" % frame_idx)
+
+        # Load image and generate detections.
+        detections = create_detections(
+            seq_info["detections"], frame_idx, min_detection_height)
+        detections = [d for d in detections if d.confidence >= min_confidence]
+
+        # Run non-maxima suppression.
+        boxes = np.array([d.tlwh for d in detections])
+        scores = np.array([d.confidence for d in detections])
+        indices = preprocessing.non_max_suppression(
+            boxes, nms_max_overlap, scores)
+        detections = [detections[i] for i in indices]
+
+        # Update tracker.
+        tracker[angle-1].predict()
+        tracker[angle-1].update(detections)
+
+        # Update visualization.
+        if display:
+            image = cv2.imread(
+                seq_info["image_filenames"][frame_idx], cv2.IMREAD_COLOR)
+            vis.set_image(image.copy(),viewer,angle)
+            #print("deep_sort angle: "+str(angle))
+            vis.draw_detections(detections,viewer,angle)
+            vis.draw_trackers(tracker[angle-1].tracks,viewer,angle)
+
+        # Store results.
+        for track in tracker[angle-1].tracks:
+            if not track.is_confirmed() or track.time_since_update > 1:
+                continue
+            bbox = track.to_tlwh()
+            results.append([
+                frame_idx, track.track_id, bbox[0], bbox[1], bbox[2], bbox[3]])
+
+    # Run tracker.
+    if display:
+        visualizer = visualization.Visualization(seq_info_list, update_ms=5,angle_length=angle_length)
+    else:
+        visualizer = visualization.NoVisualization(seq_info)
+    visualizer.run(frame_callback,angle_length)
 
     # Store results.
     f = open(output_file, 'w')
@@ -215,6 +305,7 @@ def run(sequence_dir, detection_file, output_file, min_confidence,
 def parse_args():
     """ Parse command line arguments.
     """
+    print("in parse_function")
     parser = argparse.ArgumentParser(description="Deep SORT")
     parser.add_argument(
         "--sequence_dir", help="Path to MOTChallenge sequence directory",
@@ -250,8 +341,17 @@ def parse_args():
 
 
 if __name__ == "__main__":
+    print("start parsing")
     args = parse_args()
+    print("parse complete")
+    
     run(
-        args.sequence_dir, args.detection_file, args.output_file,
+        args.sequence_dir.split(','), args.detection_file.split(','), args.output_file,
         args.min_confidence, args.nms_max_overlap, args.min_detection_height,
         args.max_cosine_distance, args.nn_budget, args.display)
+    '''
+    run(
+        args.sequence_dir, args.sequence_dir2, args.detection_file, args.detection_file2, args.output_file,
+        args.min_confidence, args.nms_max_overlap, args.min_detection_height,
+        args.max_cosine_distance, args.nn_budget, args.display)
+    '''

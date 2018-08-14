@@ -98,15 +98,16 @@ class ImageViewer(object):
 
     """
 
-    def __init__(self, update_ms, window_shape=(640, 480), caption="Figure 1"):
+    def __init__(self, update_ms, window_shape=(640, 480), caption="Figure 1",angle_length=3):
         self._window_shape = window_shape
         self._caption = caption
         self._update_ms = update_ms
         self._video_writer = None
         self._user_fun = lambda: None
         self._terminate = False
-
-        self.image = np.zeros(self._window_shape + (3, ), dtype=np.uint8)
+        self.image_list = []
+        for index in range(0,angle_length):
+            self.image_list.append(np.zeros(self._window_shape + (3, ), dtype=np.uint8))
         self._color = (0, 0, 0)
         self.text_color = (255, 255, 255)
         self.thickness = 1
@@ -121,6 +122,7 @@ class ImageViewer(object):
             raise ValueError("color must be tuple of 3")
         self._color = tuple(int(c) for c in value)
 
+    '''
     def rectangle(self, x, y, w, h, label=None):
         """Draw a rectangle.
 
@@ -152,7 +154,55 @@ class ImageViewer(object):
             cv2.rectangle(self.image, pt1, pt2, self._color, -1)
             cv2.putText(self.image, label, center, cv2.FONT_HERSHEY_PLAIN,
                         1, (255, 255, 255), self.thickness)
+    '''
+    def rectangle(self, x, y, w, h, label=None, angle = 1):
+        """Draw a rectangle.
 
+        Parameters
+        ----------
+        x : float | int
+            Top left corner of the rectangle (x-axis).
+        y : float | int
+            Top let corner of the rectangle (y-axis).
+        w : float | int
+            Width of the rectangle.
+        h : float | int
+            Height of the rectangle.
+        label : Optional[str]
+            A text label that is placed at the top left corner of the
+            rectangle.
+
+        """
+        pt1 = int(x), int(y)
+        pt2 = int(x + w), int(y + h)
+        cv2.rectangle(self.image_list[angle-1], pt1, pt2, self._color, self.thickness)
+        '''
+        if angle == 1:
+            cv2.rectangle(self.image, pt1, pt2, self._color, self.thickness)
+        elif angle == 2:
+            cv2.rectangle(self.image2, pt1, pt2, self._color, self.thickness)
+            '''
+        if label is not None:
+            text_size = cv2.getTextSize(
+                label, cv2.FONT_HERSHEY_PLAIN, 1, self.thickness)
+
+            center = pt1[0] + 5, pt1[1] + 5 + text_size[0][1]
+            pt2 = pt1[0] + 10 + text_size[0][0], pt1[1] + 10 + \
+                text_size[0][1]
+            #print("image angle: "+str(angle))
+            cv2.rectangle(self.image_list[angle-1], pt1, pt2, self._color, -1)
+            cv2.putText(self.image_list[angle-1], label, center, cv2.FONT_HERSHEY_PLAIN,
+                        1, (255, 255, 255), self.thickness)
+            '''
+            if angle == 1:
+                cv2.rectangle(self.image, pt1, pt2, self._color, -1)
+                cv2.putText(self.image, label, center, cv2.FONT_HERSHEY_PLAIN,
+                        1, (255, 255, 255), self.thickness)
+            if angle == 2:
+                cv2.rectangle(self.image2, pt1, pt2, self._color, -1)
+                cv2.putText(self.image2, label, center, cv2.FONT_HERSHEY_PLAIN,
+                        1, (255, 255, 255), self.thickness)
+            '''
     def circle(self, x, y, radius, label=None):
         """Draw a circle.
 
@@ -282,7 +332,7 @@ class ImageViewer(object):
         """
         self._video_writer = None
 
-    def run(self, update_fun=None):
+    def run(self, update_fun=None,angle_length=3):
         """Start the image viewer.
 
         This method blocks until the user requests to close the window.
@@ -308,8 +358,9 @@ class ImageViewer(object):
                         cv2.resize(self.image, self._window_shape))
             t1 = time.time()
             remaining_time = max(1, int(self._update_ms - 1e3*(t1-t0)))
-            cv2.imshow(
-                self._caption, cv2.resize(self.image, self._window_shape[:2]))
+            for angle in range(0,angle_length):
+                cv2.imshow(
+                    "Angle "+str(angle+1), cv2.resize(self.image_list[angle-1], self._window_shape[:2]))
             key = cv2.waitKey(remaining_time)
             if key & 255 == 27:  # ESC
                 print("terminating")
@@ -327,10 +378,10 @@ class ImageViewer(object):
         # is called.
         #
         # see https://github.com/Itseez/opencv/issues/4535
-        self.image[:] = 0
+        #self.image[:] = 0
         cv2.destroyWindow(self._caption)
         cv2.waitKey(1)
-        cv2.imshow(self._caption, self.image)
+        #cv2.imshow(self._caption, self.image)
 
     def stop(self):
         """Stop the control loop.

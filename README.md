@@ -1,5 +1,17 @@
 # Deep SORT
 
+##UPDATE
+added multiple views for camera matrix. 2018.08.14
+```
+python deep_sort_app.py \
+    --sequence_dir=./MOT16/test/MOT16-06,./MOT16/test/MOT16-08 \
+    --detection_file=./resources/detections/MOT16_POI_test/MOT16-06.npy,./resources/detections/MOT16_POI_test/MOT16-06.npy \
+    --min_confidence=0.3 \
+    --nn_budget=100 \
+    --display=True
+```
+
+
 ## Introduction
 
 This repository contains code for *Simple Online and Realtime Tracking with a Deep Association Metric* (Deep SORT).

@@ -85,29 +85,37 @@ class Visualization(object):
     """
     This class shows tracking output in an OpenCV image viewer.
     """
-
-    def __init__(self, seq_info, update_ms):
-        image_shape = seq_info["image_size"][::-1]
+    def __init__(self, seq_info_list, update_ms,angle_length):
+        image_shape = seq_info_list[0]["image_size"][::-1]
         aspect_ratio = float(image_shape[1]) / image_shape[0]
         image_shape = 1024, int(aspect_ratio * 1024)
+        self.seq = seq_info_list
         self.viewer = ImageViewer(
-            update_ms, image_shape, "Figure %s" % seq_info["sequence_name"])
+            update_ms, image_shape, "Figure %s" % seq_info_list[0]["sequence_name"],angle_length)
         self.viewer.thickness = 2
-        self.frame_idx = seq_info["min_frame_idx"]
-        self.last_idx = seq_info["max_frame_idx"]
+        self.frame_idx = seq_info_list[0]["min_frame_idx"]
+        self.last_idx = seq_info_list[0]["max_frame_idx"]
 
-    def run(self, frame_callback):
-        self.viewer.run(lambda: self._update_fun(frame_callback))
+    def run(self, frame_callback,angle_length):
+        self.viewer.run(lambda: self._update_fun(frame_callback,self.viewer))
 
-    def _update_fun(self, frame_callback):
+    def _update_fun(self, frame_callback, viewer):
         if self.frame_idx > self.last_idx:
             return False  # Terminate
-        frame_callback(self, self.frame_idx)
+        index = 1
+        for item in self.seq:
+            frame_callback(self, self.frame_idx, item, viewer,index)
+            index = index + 1
+        #frame_callback(self, self.frame_idx, self.seq2, viewer,2)
         self.frame_idx += 1
         return True
 
-    def set_image(self, image):
-        self.viewer.image = image
+    def set_image(self, image, viewer,angle):
+        viewer.image_list[angle-1] = image
+        #if angle == 1:
+        #    viewer.image = image
+        #elif angle == 2:
+        #    viewer.image2 = image
 
     def draw_groundtruth(self, track_ids, boxes):
         self.viewer.thickness = 2
@@ -115,20 +123,21 @@ class Visualization(object):
             self.viewer.color = create_unique_color_uchar(track_id)
             self.viewer.rectangle(*box.astype(np.int), label=str(track_id))
 
-    def draw_detections(self, detections):
-        self.viewer.thickness = 2
-        self.viewer.color = 0, 0, 255
+    def draw_detections(self, detections,viewer,angle):
+        #print("vis angle: "+str(angle))
+        viewer.thickness = 2
+        viewer.color = 0, 0, 255
         for i, detection in enumerate(detections):
-            self.viewer.rectangle(*detection.tlwh)
+            viewer.rectangle(detection.tlwh[0],detection.tlwh[1],detection.tlwh[2],detection.tlwh[3],None,angle)
 
-    def draw_trackers(self, tracks):
-        self.viewer.thickness = 2
+    def draw_trackers(self, tracks,viewer,angle):
+        viewer.thickness = 2
         for track in tracks:
             if not track.is_confirmed() or track.time_since_update > 0:
                 continue
-            self.viewer.color = create_unique_color_uchar(track.track_id)
-            self.viewer.rectangle(
-                *track.to_tlwh().astype(np.int), label=str(track.track_id))
+            viewer.color = create_unique_color_uchar(track.track_id)
+            viewer.rectangle(
+                *track.to_tlwh().astype(np.int), label=str(track.track_id),angle=angle)
             # self.viewer.gaussian(track.mean[:2], track.covariance[:2, :2],
             #                      label="%d" % track.track_id)
 #
