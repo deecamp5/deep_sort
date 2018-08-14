@@ -1,7 +1,8 @@
 # Deep SORT
 
-##UPDATE
-added multiple views for camera matrix. 2018.08.14
+## UPDATE
+
+2018.08.14: added multiple views for camera matrix, simple using comma to add views as follow.
 ```
 python deep_sort_app.py \
     --sequence_dir=./MOT16/test/MOT16-06,./MOT16/test/MOT16-08 \
